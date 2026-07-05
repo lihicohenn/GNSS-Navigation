@@ -1,8 +1,8 @@
-# GNSS-Navigation — RINEX → 1 Hz Path (Ex0)
+# GNSS-Navigation - RINEX → 1 Hz Path (Ex0)
 
 Compute an **offline navigation path** (3D position + velocity + UTC time, at
 1 Hz) from an Android **RINEX 3/4** observation file, and export it as **KML +
-CSV**. The solution is computed *from the RINEX measurements only* — the phone's
+CSV**. The solution is computed *from the RINEX measurements only* - the phone's
 own NMEA fix is never used for positioning (it's only for cross-checking).
 
 This is a from-scratch implementation of **multi-constellation single-point
@@ -56,24 +56,7 @@ iono/tropo models + elevation mask), `--elevation-mask DEG`, `--nmea FILE`
 
 ---
 
-## 2. Why you need two files
-
-A RINEX **observation** file (`OBSERVATION DATA` in its header) contains, per
-second, the **pseudorange**, **Doppler** and **signal strength** to each
-satellite — but *not the satellites' positions*. To place a satellite in orbit
-you need **ephemeris** (Keplerian elements for GPS/Galileo/BeiDou/QZSS, or a
-PZ-90 state vector for GLONASS), which lives in a RINEX **navigation** file, or
-in the daily *mixed* broadcast product (BRDC …_MN) you can download for the
-recording date. This project accepts either, and the navigation file is also
-where the Klobuchar ionosphere coefficients come from.
-
-> If your shared-folder example only has an observation file, the tool downloads
-> the matching multi-GNSS broadcast ephemeris automatically (see
-> `gnss/ephemeris_download.py`).
-
----
-
-## 3. The algorithm (what happens each second)
+## 2. The algorithm (what happens each second)
 
 For every 1 Hz epoch (`>` block in the RINEX file):
 
@@ -137,7 +120,7 @@ least-squares sense `Δx = (Hᵀ W H)⁻¹ Hᵀ W b`, iterated to convergence.
 
 ---
 
-## 4. Project layout
+## 3. Project layout
 
 ```
 gnss/
@@ -163,24 +146,7 @@ tests/test_features.py     multi-GNSS, ISB, corrections, NMEA, spoofing
 
 ---
 
-## 5. Current status & roadmap
-
-- [x] RINEX 3/4 observation + navigation parsing
-- [x] GPS satellite position/velocity/clock from broadcast ephemeris
-- [x] Weighted least-squares position + Doppler velocity
-- [x] CSV + KML export, self-tests
-- [x] Validate against the recording's NMEA track (`gnss/validate.py`, `--nmea`)
-- [x] Multi-constellation (Galileo / BeiDou / GLONASS / QZSS) with inter-system
-      clock biases (`gnss/ephemeris.py`, `gnss/positioning.py`)
-- [x] Ionospheric (Klobuchar) + tropospheric (Saastamoinen) corrections
-      (`gnss/atmosphere.py`)
-- [x] Bonus: detect / analyse spoofed measurements (`gnss/spoofing.py`)
-
-**Milestone:** GPS-only first, then GPS + Galileo + BeiDou + GLONASS + QZSS with
-inter-system biases, atmospheric corrections, NMEA validation and integrity
-monitoring — all done.
-
-### Validation
+### 4. Validation
 
 Every feature has a **self-test** (`tests/`, 19 cases) that forward-models
 self-consistent measurements and checks the solver recovers the injected truth
@@ -203,7 +169,7 @@ but our path is computed only from the RINEX pseudoranges + broadcast ephemeris.
 
 ---
 
-## 6. References
+## 5. References
 
 - IS-GPS-200 — GPS Interface Specification (satellite position user algorithm,
   Klobuchar single-frequency ionospheric model).
