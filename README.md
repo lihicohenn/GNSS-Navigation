@@ -33,10 +33,9 @@ python tests/test_features.py        # multi-GNSS, corrections, NMEA, spoofing
 # Or run everything at once with pytest (optional, needs the dev deps):
 pip install -r requirements-dev.txt && python -m pytest tests/ -q
 
-# Compute a path.  If you have a navigation file, pass it with --nav:
+# Compute a path. pass the navigation file with with --nav:
 python main.py data/your_obs.rnx --nav data/your_nav.rnx -o output/track
 
-# If you only have the observation file, broadcast ephemeris is downloaded
 # automatically for the recording date:
 python main.py data/your_obs.rnx -o output/track
 
@@ -60,12 +59,12 @@ iono/tropo models + elevation mask), `--elevation-mask DEG`, `--nmea FILE`
 
 For every 1 Hz epoch (`>` block in the RINEX file):
 
-1. **Read measurements** — for every satellite of every enabled constellation:
+1. **Read measurements** - for every satellite of every enabled constellation:
    the pseudorange, Doppler and carrier-to-noise on the system's primary band
    (e.g. GPS `C1C/D1C/S1C`, BeiDou `C2I`, GLONASS `C1C`). (`gnss/rinex_obs.py`,
    `gnss/solver.py::_select_observations`)
 
-2. **Locate each satellite** — the signal left the satellite at
+2. **Locate each satellite** - the signal left the satellite at
    `t_tx = t_rx − pseudorange/c`. Keplerian systems (GPS/Galileo/BeiDou/QZSS)
    propagate their broadcast elements with the IS-GPS-200 user algorithm and the
    system's own `GM`/`ωₑ` (plus the special final rotation for BeiDou GEOs);
@@ -73,13 +72,13 @@ For every 1 Hz epoch (`>` block in the RINEX file):
    Each yields ECEF position + velocity and a clock offset (incl. relativistic
    and group-delay terms). (`gnss/ephemeris.py`)
 
-3. **Correct the pseudorange** — add back the satellite clock error, subtract the
+3. **Correct the pseudorange** - add back the satellite clock error, subtract the
    modelled **ionospheric** (Klobuchar, scaled to the carrier frequency) and
    **tropospheric** (Saastamoinen) delays, and apply the **Earth-rotation
    (Sagnac)** correction for the ~0.07 s the signal was in flight.
    (`gnss/atmosphere.py`, `gnss/solver.py`, `gnss/positioning.py`)
 
-4. **Solve position** — `3 + (#systems)` unknowns: `(x, y, z)` plus one receiver
+4. **Solve position** - `3 + (#systems)` unknowns: `(x, y, z)` plus one receiver
    clock offset per constellation. The range is non-linear in the unknowns, so
    we linearise and iterate (Gauss–Newton), weighting each satellite by its C/N0
    and elevation. A first uncorrected fix seeds the elevation/azimuth the
@@ -87,20 +86,20 @@ For every 1 Hz epoch (`>` block in the RINEX file):
    rejection follows. Needs ≥ 4 satellites (more with several systems).
    (`gnss/positioning.py::least_squares_position`)
 
-5. **Solve velocity** — the Doppler measurements give range-rate; with the known
+5. **Solve velocity** - the Doppler measurements give range-rate; with the known
    satellite velocities this is a *linear* least-squares for
    `(vx, vy, vz, clock_drift)`, one shared receiver clock drift.
    (`gnss/positioning.py::least_squares_velocity`)
 
-6. **Convert & store** — ECEF → geodetic lat/lon/alt (WGS-84), velocity → local
+6. **Convert & store** - ECEF → geodetic lat/lon/alt (WGS-84), velocity → local
    East-North-Up, GPS time → UTC, plus per-satellite diagnostics.
    (`gnss/coords.py`, `gnss/timeutils.py`)
 
-7. **Validate & screen** — compare each fix to the nearest NMEA fix in time
+7. **Validate & screen** - compare each fix to the nearest NMEA fix in time
    (`gnss/validate.py`) and screen the residuals / C-N0 / kinematics for spoofing
    fingerprints (`gnss/spoofing.py`).
 
-8. **Write** the collected epochs to CSV + KML. (`gnss/output.py`)
+8. **Write** - the collected epochs to CSV + KML. (`gnss/output.py`)
 
 ### The positioning equation
 
@@ -171,7 +170,7 @@ but our path is computed only from the RINEX pseudoranges + broadcast ephemeris.
 
 ## 5. References
 
-- IS-GPS-200 — GPS Interface Specification (satellite position user algorithm,
+- IS-GPS-200 - GPS Interface Specification (satellite position user algorithm,
   Klobuchar single-frequency ionospheric model).
 - Galileo OS-SIS-ICD, BeiDou B1I/B3I ICD (GEO orbit transform), GLONASS ICD
   (PZ-90 equations of motion).
