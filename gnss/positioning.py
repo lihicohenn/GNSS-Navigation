@@ -6,8 +6,14 @@ is *linear* once the geometry is known, so a single weighted least-squares pass
 suffices.
 
 Both solvers work in ECEF metres.  The unknown vectors are:
-    position:  [dx, dy, dz, c*dt_receiver]      (4 unknowns, GPS-only)
-    velocity:  [vx, vy, vz, c*dt_receiver_rate]  (4 unknowns)
+    position:  [dx, dy, dz, c*dt_G, c*dt_E, ...]  (3 + one clock per system)
+    velocity:  [vx, vy, vz, c*dt_receiver_rate]   (4 unknowns)
+
+Mixing constellations means each system keeps its own receiver-clock offset:
+the difference between two of them is that pair's **inter-system bias** (ISB),
+which absorbs the fact that the systems' time scales and the receiver's hardware
+delays are not identical.  With one system present this reduces to the classic
+4-unknown GPS solve.
 """
 
 from __future__ import annotations
@@ -44,7 +50,8 @@ def earth_rotation_correction(sat_pos: np.ndarray, travel_time: float) -> np.nda
 @dataclass
 class PositionSolution:
     pos: np.ndarray          # ECEF position [m]
-    clock_bias: float        # receiver clock bias [m] (c * dt)
+    clock_bias: float        # receiver clock bias of the reference system [m]
+    clock_biases: np.ndarray # per-system clock biases [m] (one entry per system)
     residuals: np.ndarray    # post-fit residuals [m]
     gdop: float              # geometric dilution of precision
     n_sats: int
@@ -56,26 +63,42 @@ def least_squares_position(
     pseudoranges: np.ndarray,       # (n,) corrected pseudoranges [m]
     weights: np.ndarray | None = None,
     x0: np.ndarray | None = None,
+    sys_index: np.ndarray | None = None,   # (n,) clock-column index per satellite
     max_iter: int = 10,
     tol: float = 1e-4,
 ) -> PositionSolution:
-    """Weighted Gauss-Newton solve for receiver position + clock bias."""
+    """Weighted Gauss-Newton solve for receiver position + per-system clock bias.
+
+    ``sys_index`` labels which receiver-clock unknown each satellite belongs to
+    (0 = reference system).  With it omitted, every satellite shares one clock
+    and the solve is the classic 4-unknown problem.  The number of clock
+    unknowns is ``max(sys_index) + 1``; each contributes one column of ones to
+    the design matrix restricted to its own satellites.
+    """
     n = len(pseudoranges)
-    x = np.zeros(4) if x0 is None else np.array(x0, dtype=float)
-    if len(x) == 3:
-        x = np.append(x, 0.0)
+    if sys_index is None:
+        sys_index = np.zeros(n, dtype=int)
+    else:
+        sys_index = np.asarray(sys_index, dtype=int)
+    n_clock = int(sys_index.max()) + 1 if n else 1
+    n_unknown = 3 + n_clock
+
+    x = np.zeros(n_unknown)
+    if x0 is not None:
+        x0 = np.asarray(x0, dtype=float)
+        x[:3] = x0[:3]
+        if len(x0) > 3:                       # seed every clock with the prior bias
+            x[3:] = x0[3]
 
     w = np.ones(n) if weights is None else np.asarray(weights, dtype=float)
     W = np.diag(w)
 
     converged = False
     residuals = np.zeros(n)
-    cov = np.eye(4)
+    H = np.zeros((n, n_unknown))
     for _ in range(max_iter):
         rcv = x[:3]
-        cdt = x[3]
 
-        H = np.zeros((n, 4))
         b = np.zeros(n)
         for i in range(n):
             travel_time = np.linalg.norm(sat_positions[i] - rcv) / C
@@ -83,25 +106,33 @@ def least_squares_position(
             diff = sp - rcv
             rng = np.linalg.norm(diff)
             los = diff / rng                      # unit vector receiver -> satellite
-            predicted = rng + cdt
-            b[i] = pseudoranges[i] - predicted
+            cdt = x[3 + sys_index[i]]
+            b[i] = pseudoranges[i] - (rng + cdt)
             H[i, :3] = -los
-            H[i, 3] = 1.0
+            H[i, 3 + sys_index[i]] = 1.0
 
         # normal equations:  (H^T W H) dx = H^T W b
         HtW = H.T @ W
-        cov = np.linalg.inv(HtW @ H)
-        dx = cov @ HtW @ b
+        try:
+            dx = np.linalg.inv(HtW @ H) @ HtW @ b
+        except np.linalg.LinAlgError:
+            break                                 # rank-deficient geometry -> give up
         x = x + dx
         residuals = b
         if np.linalg.norm(dx[:3]) < tol:
             converged = True
             break
 
-    gdop = float(np.sqrt(np.trace(cov)))
+    # GDOP from the UNWEIGHTED geometry (the standard dilution of precision:
+    # position + reference-system clock), a meaningful quality metric.
+    try:
+        gcov = np.linalg.inv(H.T @ H)
+        gdop = float(np.sqrt(np.trace(gcov[:4, :4])))
+    except np.linalg.LinAlgError:
+        gdop = float("inf")
     return PositionSolution(
-        pos=x[:3], clock_bias=x[3], residuals=residuals,
-        gdop=gdop, n_sats=n, converged=converged,
+        pos=x[:3], clock_bias=x[3], clock_biases=x[3:].copy(),
+        residuals=residuals, gdop=gdop, n_sats=n, converged=converged,
     )
 
 

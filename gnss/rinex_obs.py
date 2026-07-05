@@ -105,7 +105,12 @@ def _parse_obs_record(line: str, codes: list[str]) -> tuple[str, dict[str, float
         start = 3 + k * _OBS_FIELD_WIDTH
         raw = line[start:start + _VALUE_WIDTH].strip()
         if raw:
-            values[code] = float(raw)
+            try:
+                values[code] = float(raw)
+            except ValueError:
+                # GnssLogger occasionally writes an over-wide value that spills
+                # past its column; skip the unparseable field rather than crash.
+                pass
     return sat_id, values
 
 

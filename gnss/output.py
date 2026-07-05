@@ -17,7 +17,7 @@ CSV_COLUMNS = [
     "utc_time", "lat_deg", "lon_deg", "alt_m",
     "ecef_x_m", "ecef_y_m", "ecef_z_m",
     "vel_e_ms", "vel_n_ms", "vel_u_ms", "speed_ms",
-    "clock_bias_m", "n_sats", "gdop",
+    "clock_bias_m", "n_sats", "systems", "gdop",
 ]
 
 
@@ -32,7 +32,7 @@ def write_csv(path: str, solutions: list[EpochSolution]) -> None:
                 f"{s.ecef[0]:.3f}", f"{s.ecef[1]:.3f}", f"{s.ecef[2]:.3f}",
                 f"{s.vel_enu[0]:.3f}", f"{s.vel_enu[1]:.3f}", f"{s.vel_enu[2]:.3f}",
                 f"{s.speed:.3f}",
-                f"{s.clock_bias_m:.3f}", s.n_sats, f"{s.gdop:.2f}",
+                f"{s.clock_bias_m:.3f}", s.n_sats, s.systems, f"{s.gdop:.2f}",
             ])
 
 
@@ -41,8 +41,33 @@ def _kml_coords(solutions: list[EpochSolution]) -> str:
     return " ".join(f"{s.lon:.8f},{s.lat:.8f},{s.alt:.2f}" for s in solutions)
 
 
-def write_kml(path: str, solutions: list[EpochSolution], label_every: int = 50) -> None:
-    """Write a KML track (LineString) with periodic labelled placemarks."""
+def _reference_placemark(reference) -> str:
+    """A green LineString for a comparison track of (lat, lon) points."""
+    if not reference:
+        return ""
+    coords = " ".join(f"{lon:.8f},{lat:.8f},0" for lat, lon in reference)
+    return f"""    <Placemark>
+      <name>NMEA reference</name>
+      <styleUrl>#reference</styleUrl>
+      <LineString>
+        <tessellate>1</tessellate>
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>{coords}</coordinates>
+      </LineString>
+    </Placemark>"""
+
+
+def write_kml(
+    path: str,
+    solutions: list[EpochSolution],
+    label_every: int = 50,
+    reference: list[tuple[float, float]] | None = None,
+) -> None:
+    """Write a KML track (LineString) with periodic labelled placemarks.
+
+    ``reference`` optionally overlays a second (green) track of (lat, lon)
+    points — used to plot the phone's own NMEA fix next to our solution.
+    """
     coords = _kml_coords(solutions)
 
     placemarks = []
@@ -52,7 +77,7 @@ def write_kml(path: str, solutions: list[EpochSolution], label_every: int = 50) 
             placemarks.append(
                 f"""    <Placemark>
       <name>{i}</name>
-      <description>{when} | {s.speed:.1f} m/s | {s.n_sats} sats</description>
+      <description>{when} | {s.speed:.1f} m/s | {s.n_sats} sats [{s.systems}]</description>
       <Point><coordinates>{s.lon:.8f},{s.lat:.8f},{s.alt:.2f}</coordinates></Point>
     </Placemark>"""
             )
@@ -64,6 +89,9 @@ def write_kml(path: str, solutions: list[EpochSolution], label_every: int = 50) 
     <Style id="track">
       <LineStyle><color>ff0000ff</color><width>3</width></LineStyle>
     </Style>
+    <Style id="reference">
+      <LineStyle><color>ff00ff00</color><width>2</width></LineStyle>
+    </Style>
     <Placemark>
       <name>Path</name>
       <styleUrl>#track</styleUrl>
@@ -73,6 +101,7 @@ def write_kml(path: str, solutions: list[EpochSolution], label_every: int = 50) 
         <coordinates>{coords}</coordinates>
       </LineString>
     </Placemark>
+{_reference_placemark(reference)}
 {chr(10).join(placemarks)}
   </Document>
 </kml>

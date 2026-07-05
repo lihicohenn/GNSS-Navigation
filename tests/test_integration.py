@@ -155,7 +155,9 @@ def test_end_to_end():
         out = os.path.join(tmp, "track")
         truth = _write_rinex(obs_path, nav_path, ephs)
 
-        rc = cli.main([obs_path, "--nav", nav_path, "-o", out])
+        # idealised ranges carry no atmosphere, so solve without the models
+        rc = cli.main([obs_path, "--nav", nav_path, "-o", out,
+                       "--no-corrections", "--no-spoof-check"])
         assert rc == 0
 
         with open(out + ".csv") as fh:

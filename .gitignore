@@ -3,8 +3,5 @@ __pycache__/
 .venv/
 venv/
 output/
-# downloaded ephemeris cache (keep the folder, ignore big data files)
-data/*.rnx
-data/*.gz
-data/*.[0-9][0-9]n
+data/
 !data/.gitkeep
