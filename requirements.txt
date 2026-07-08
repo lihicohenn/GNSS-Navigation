@@ -1,9 +1,1 @@
-# Runtime dependencies for the GNSS-Navigation pipeline.
-#
-# numpy is the ONLY third-party package required. Every other module the code
-# imports (argparse, bisect, csv, dataclasses, datetime, gzip, math, os, sys,
-# tempfile, urllib, xml) ships with Python itself — no installation needed.
-# Verified by parsing every import in the project (see the README self-tests).
-#
-# For running the test suite via pytest, use requirements-dev.txt instead.
 numpy>=1.21
