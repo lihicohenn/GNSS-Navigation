@@ -31,7 +31,7 @@ python tests/test_integration.py     # end-to-end GPS pipeline
 python tests/test_features.py        # multi-GNSS, corrections, NMEA, spoofing
 
 # Or run everything at once with pytest (optional, needs the dev deps):
-pip install -r requirements-dev.txt && python -m pytest tests/ -q
+pip install -r requirements.txt && python -m pytest tests/ -q
 
 # Compute a path. pass the navigation file with with --nav:
 python main.py data/your_obs.rnx --nav data/your_nav.rnx -o output/track
